@@ -1,10 +1,9 @@
-import pansachindas as pd
+import pandas as pd
 
 pd.set_option("display.max_columns", None)
 pd.set_option("display.width", 200)
-pd.set_option("display.max_colwidth", 60)
 
-ROLL_NO = "1024170302"
+roll_no = "1024170302"
 
 fixed_entries = [
     {"question": "what is the annual fee", "answer": "The annual fee is Rs 500.",
@@ -19,102 +18,101 @@ fixed_entries = [
 
 categories = ["billing", "account", "general"]
 
-last_two = [int(d) for d in ROLL_NO[-2:]]
-print("Last two digits:", last_two)
+digit1 = int(roll_no[-2])
+digit2 = int(roll_no[-1])
 
-for d in last_two:
-    print(f"digit {d} -> {d} % 3 = {d % 3} -> {categories[d % 3]}")
+category1 = categories[digit1 % 3]
+category2 = categories[digit2 % 3]
 
-personal_entries = [
+print("Digit", digit1, "->", category1)
+print("Digit", digit2, "->", category2)
+
+my_entries = [
     {"question": "how do i get a refund",
-     "answer": "Refunds are processed within 7 working days to the original payment method.",
+     "answer": "Refunds are processed within 7 working days.",
      "keywords": "refund money return",
-     "category": categories[last_two[0] % 3]},
+     "category": category1},
     {"question": "where is your office located",
-     "answer": "Our office is at Block B, Thapar Institute, Patiala.",
+     "answer": "Our office is at Thapar Institute, Patiala.",
      "keywords": "office address location",
-     "category": categories[last_two[1] % 3]},
+     "category": category2},
 ]
 
-df = pd.DataFrame(fixed_entries + personal_entries)
-print("\nQ1: Final Knowledge Base")
+df = pd.DataFrame(fixed_entries + my_entries)
+
+print("\nQ1: Knowledge Base")
 print(df)
 
+
 def score_query(query, df):
+    query_words = query.lower().split()
+    rows = []
 
-    query_words = set(query.lower().split())
-    results = []
+    for i in range(len(df)):
+        keywords = df.loc[i, "keywords"].split()
 
-    for idx, row in df.iterrows():
-        kw = set(row["keywords"].split())
-        matches = query_words & kw
-        if len(matches) == 0:
-            continue
+        count = 0
+        for word in query_words:
+            if word in keywords:
+                count = count + 1
 
-        confidence = len(matches) / len(query_words)
-        results.append({
-            "question": row["question"],
-            "answer": row["answer"],
-            "matched": ", ".join(sorted(matches)),
-            "confidence": round(confidence, 2),
-        })
+        if count > 0:
+            confidence = round(count / len(query_words), 2)
+            rows.append([df.loc[i, "question"], df.loc[i, "answer"], confidence])
 
-    results = sorted(results, key=lambda r: r["confidence"], reverse=True)
-    return pd.DataFrame(results)
+    result = pd.DataFrame(rows, columns=["question", "answer", "confidence"])
+    result = result.sort_values("confidence", ascending=False)
+    return result
 
-print("\nQ2: Scoring 'how do i reset my password'")
+
+print("\nQ2: Query = 'how do i reset my password'")
 print(score_query("how do i reset my password", df))
 
-print("\nQ2: Scoring 'what is the fee price'")
+print("\nQ2: Query = 'what is the fee price'")
 print(score_query("what is the fee price", df))
 
-def same_category(category_name, df):
 
+def same_category(category_name, df):
     return df[df["category"] == category_name]["question"]
 
-my_cat = personal_entries[1]["category"]
-print(f"\nQ3: All questions in category '{my_cat}'")
-print(same_category(my_cat, df).to_string())
 
-entry_idx = 1
-print(f"\nQ4: Current keywords for '{df.loc[entry_idx, 'question']}': {df.loc[entry_idx, 'keywords']}")
+print("\nQ3: Questions in category", category2)
+print(same_category(category2, df))
 
-new_kw = input("Enter a new keyword to add: ").strip().lower()
 
-if new_kw and new_kw not in df.loc[entry_idx, "keywords"].split():
-    df.loc[entry_idx, "keywords"] += " " + new_kw
-    print("Updated keywords:", df.loc[entry_idx, "keywords"])
-else:
-    print("Keyword empty or already present, nothing changed.")
+print("\nQ4: Old keywords:", df.loc[1, "keywords"])
+new_keyword = input("Enter a new keyword: ")
+df.loc[1, "keywords"] = df.loc[1, "keywords"] + " " + new_keyword
+print("New keywords:", df.loc[1, "keywords"])
 
-filename = f"{ROLL_NO}_faq_data.csv"
-df.to_csv(filename, index=False)
-print("Saved to", filename)
+file_name = roll_no + "_faq_data.csv"
+df.to_csv(file_name, index=False)
+print("Saved to", file_name)
+
 
 print("\nQ5: Entries per category")
 print(df.groupby("category").size())
 
-def score_query_with_ties(query, df):
-    ranked = score_query(query, df)
 
-    if ranked.empty:
-        print("No matching entry found.")
+def score_with_ties(query, df):
+    result = score_query(query, df)
+
+    if len(result) == 0:
+        print("No match found")
         return
 
-    top = ranked["confidence"].max()
-    best = ranked[ranked["confidence"] == top]
+    top_score = result["confidence"].max()
+    best = result[result["confidence"] == top_score]
 
     if len(best) > 1:
-
-        print(f"Tie! {len(best)} entries share the top confidence ({top}):")
-        for _, r in best.iterrows():
-            print(f"  - {r['question']} -> {r['answer']}")
+        print("Tie found! All best matches:")
     else:
-        r = best.iloc[0]
-        print(f"Best match ({top}): {r['question']} -> {r['answer']}")
+        print("Best match:")
+    print(best)
 
-print("\nQ6: Query with a tie -> 'fee'")
-score_query_with_ties("fee", df)
 
-print("\nQ6: Query without a tie -> 'refund'")
-score_query_with_ties("refund", df)
+print("\nQ6: Query = 'fee' (tie)")
+score_with_ties("fee", df)
+
+print("\nQ6: Query = 'refund' (no tie)")
+score_with_ties("refund", df)
