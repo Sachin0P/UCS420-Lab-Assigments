@@ -85,7 +85,7 @@ new_keyword = input("Enter a new keyword: ")
 df.loc[1, "keywords"] = df.loc[1, "keywords"] + " " + new_keyword
 print("New keywords:", df.loc[1, "keywords"])
 
-file_name = roll_no + "_faq_data.csv"
+file_name = roll_no + "data.csv"
 df.to_csv(file_name, index=False)
 print("Saved to", file_name)
 
